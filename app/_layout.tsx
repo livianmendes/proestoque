@@ -4,17 +4,20 @@ import { ReactNode, useEffect } from 'react';
 
 import { SplashScreen } from '../src/components/SplashScreen';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
+import { ProductsProvider } from '../src/contexts/ProductsContext';
 
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <NavigationGuard>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
-        </Stack>
-        <StatusBar style="dark" />
-      </NavigationGuard>
+      <ProductsProvider>
+        <NavigationGuard>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(auth)" />
+            <Stack.Screen name="(tabs)" />
+          </Stack>
+          <StatusBar style="dark" />
+        </NavigationGuard>
+      </ProductsProvider>
     </AuthProvider>
   );
 }

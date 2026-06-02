@@ -8,7 +8,7 @@ type ButtonProps = {
   disabled?: boolean;
   loading?: boolean;
   fullWidth?: boolean;
-  variant?: 'primary' | 'secondary';
+  variant?: 'primary' | 'secondary' | 'danger';
   style?: StyleProp<ViewStyle>;
 };
 
@@ -22,8 +22,10 @@ export function Button({
   style,
 }: ButtonProps) {
   const isSecondary = variant === 'secondary';
-  const backgroundColor = isSecondary ? Colors.card : Colors.primary;
-  const textColor = isSecondary ? Colors.primary : Colors.white;
+  const isDanger = variant === 'danger';
+  const backgroundColor = isSecondary ? Colors.card : isDanger ? '#fef2f2' : Colors.primary;
+  const textColor = isSecondary ? Colors.primary : isDanger ? Colors.danger : Colors.white;
+  const borderColor = isSecondary ? Colors.primary : isDanger ? '#fecaca' : Colors.primary;
 
   return (
     <Pressable
@@ -34,7 +36,7 @@ export function Button({
         fullWidth && styles.fullWidth,
         {
           backgroundColor,
-          borderColor: isSecondary ? Colors.primary : Colors.primary,
+          borderColor,
           opacity: pressed || disabled ? 0.74 : 1,
         },
         style,
@@ -66,4 +68,3 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
-

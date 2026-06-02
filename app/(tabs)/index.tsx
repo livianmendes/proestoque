@@ -2,11 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { FlatList, StyleSheet, Text, View } from 'react-native';
 
 import { Colors, Radii, Spacing, Typography } from '../../src/constants/theme';
-import { produtos, resumoEstoque } from '../../src/data/mockData';
 import { useAuth } from '../../src/contexts/AuthContext';
+import { formatCurrency, useProducts } from '../../src/contexts/ProductsContext';
 
 export default function DashboardScreen() {
   const { user } = useAuth();
+  const { produtos, resumo } = useProducts();
   const primeiroNome = user?.nome.split(' ')[0] ?? 'Usuario';
   const inicial = primeiroNome.charAt(0).toUpperCase();
 
@@ -25,30 +26,30 @@ export default function DashboardScreen() {
       </View>
 
       <View style={styles.grid}>
-        <SummaryCard icon="cube" label="Produtos" value={resumoEstoque.totalProdutos} tone="primary" />
+        <SummaryCard icon="cube" label="Produtos" value={resumo.totalProdutos} tone="primary" />
         <SummaryCard
           icon="warning"
           label="Alertas"
-          value={resumoEstoque.baixoEstoque}
+          value={resumo.baixoEstoque + resumo.semEstoque}
           tone="danger"
         />
         <SummaryCard
           icon="pricetags"
           label="Categorias"
-          value={resumoEstoque.categorias}
+          value={resumo.categorias}
           tone="info"
         />
         <SummaryCard
           icon="cash"
           label="Valor"
-          value={resumoEstoque.valorTotal}
+          value={resumo.valorTotal}
           tone="success"
         />
       </View>
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Produtos recentes</Text>
-        <Text style={styles.sectionHint}>Mock data da Aula 6</Text>
+        <Text style={styles.sectionHint}>ProductsContext</Text>
       </View>
 
       <FlatList
@@ -63,10 +64,10 @@ export default function DashboardScreen() {
             <View style={styles.productInfo}>
               <Text style={styles.productName}>{item.nome}</Text>
               <Text style={styles.productMeta}>
-                {item.categoria} - {item.estoque} un.
+                {item.categoria} - {item.quantidade} {item.unidade}
               </Text>
             </View>
-            <Text style={styles.productPrice}>{item.preco}</Text>
+            <Text style={styles.productPrice}>{formatCurrency(item.preco)}</Text>
           </View>
         )}
       />
@@ -241,4 +242,3 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
-
