@@ -8,7 +8,7 @@ import { Colors, Spacing, Typography } from '../../src/constants/theme';
 import { useAuth } from '../../src/contexts/AuthContext';
 
 export default function CadastroScreen() {
-  const { login, isLoading } = useAuth();
+  const { registrar, isLoading } = useAuth();
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
@@ -19,7 +19,11 @@ export default function CadastroScreen() {
       return;
     }
 
-    await login(email.trim(), senha, nome.trim());
+    try {
+      await registrar(nome.trim(), email.trim(), senha);
+    } catch (error) {
+      Alert.alert('Nao foi possivel cadastrar', error instanceof Error ? error.message : 'Tente novamente.');
+    }
   }
 
   return (
@@ -89,4 +93,3 @@ const styles = StyleSheet.create({
     marginTop: Spacing.lg,
   },
 });
-

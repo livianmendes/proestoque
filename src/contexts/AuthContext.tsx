@@ -1,8 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-const TOKEN_KEY = '@proestoque:token';
-const USER_KEY = '@proestoque:user';
+import { api, AUTH_STORAGE_KEYS } from '../services/api';
+
 const MIN_SPLASH_TIME = 1500;
 
 export type User = {
@@ -16,7 +16,8 @@ type AuthContextType = {
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string, nome?: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  registrar: (nome: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -35,14 +36,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const startedAt = Date.now();
 
     try {
-      const [[, storedToken], [, storedUser]] = await AsyncStorage.multiGet([TOKEN_KEY, USER_KEY]);
+      const [[, storedToken], [, storedUser]] = await AsyncStorage.multiGet([
+        AUTH_STORAGE_KEYS.TOKEN,
+        AUTH_STORAGE_KEYS.USER,
+      ]);
 
       if (storedToken && storedUser) {
         setToken(storedToken);
         setUser(JSON.parse(storedUser) as User);
       }
     } catch {
-      await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
+      await clearSession();
       setToken(null);
       setUser(null);
     } finally {
@@ -55,35 +59,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function login(email: string, _password: string, nome?: string) {
+  const saveSession = useCallback(async (usuario: User, tokenValue: string, refreshToken?: string) => {
+    const items: [string, string][] = [
+      [AUTH_STORAGE_KEYS.TOKEN, tokenValue],
+      [AUTH_STORAGE_KEYS.USER, JSON.stringify(usuario)],
+    ];
+
+    if (refreshToken) {
+      items.push([AUTH_STORAGE_KEYS.REFRESH_TOKEN, refreshToken]);
+    }
+
+    await AsyncStorage.multiSet(items);
+    setUser(usuario);
+    setToken(tokenValue);
+  }, []);
+
+  const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
 
-    await delay(500);
+    try {
+      const response = await api.post('/auth/login', { email, senha: password });
+      const { usuario, token: tokenValue, refreshToken } = response.data;
 
-    const loggedUser: User = {
-      id: '1',
-      nome: nome ?? getNameFromEmail(email),
-      email,
-    };
-    const loggedToken = `proestoque-token-${Date.now()}`;
+      await saveSession(usuario, tokenValue, refreshToken);
+    } catch (error: any) {
+      const message = error.response?.data?.erro ?? 'Erro ao fazer login';
 
-    await AsyncStorage.multiSet([
-      [TOKEN_KEY, loggedToken],
-      [USER_KEY, JSON.stringify(loggedUser)],
-    ]);
+      throw new Error(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [saveSession]);
 
-    setUser(loggedUser);
-    setToken(loggedToken);
-    setIsLoading(false);
-  }
-
-  async function logout() {
+  const registrar = useCallback(async (nome: string, email: string, password: string) => {
     setIsLoading(true);
-    await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
+
+    try {
+      const response = await api.post('/auth/registro', { nome, email, senha: password });
+      const { usuario, token: tokenValue, refreshToken } = response.data;
+
+      await saveSession(usuario, tokenValue, refreshToken);
+    } catch (error: any) {
+      const message = error.response?.data?.erro ?? 'Erro ao criar conta';
+
+      throw new Error(message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [saveSession]);
+
+  const logout = useCallback(async () => {
+    setIsLoading(true);
+    await clearSession();
     setUser(null);
     setToken(null);
     setIsLoading(false);
-  }
+  }, []);
 
   const value = useMemo<AuthContextType>(
     () => ({
@@ -92,9 +123,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       isAuthenticated: Boolean(token && user),
       login,
+      registrar,
       logout,
     }),
-    [isLoading, token, user]
+    [isLoading, login, logout, registrar, token, user]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -110,21 +142,10 @@ export function useAuth() {
   return context;
 }
 
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+async function clearSession() {
+  await AsyncStorage.multiRemove([
+    AUTH_STORAGE_KEYS.TOKEN,
+    AUTH_STORAGE_KEYS.REFRESH_TOKEN,
+    AUTH_STORAGE_KEYS.USER,
+  ]);
 }
-
-function getNameFromEmail(email: string) {
-  if (email.toLowerCase().startsWith('joao')) {
-    return 'Joao Silva';
-  }
-
-  const localPart = email.split('@')[0] || 'Usuario';
-
-  return localPart
-    .split(/[._-]/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-

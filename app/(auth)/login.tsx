@@ -18,7 +18,11 @@ export default function LoginScreen() {
       return;
     }
 
-    await login(email.trim(), password);
+    try {
+      await login(email.trim(), password);
+    } catch (error) {
+      Alert.alert('Nao foi possivel entrar', error instanceof Error ? error.message : 'Tente novamente.');
+    }
   }
 
   return (
@@ -123,4 +127,3 @@ const styles = StyleSheet.create({
     fontSize: Typography.small,
   },
 });
-
