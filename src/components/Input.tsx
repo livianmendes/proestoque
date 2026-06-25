@@ -4,18 +4,20 @@ import { Colors, Radii, Spacing, Typography } from '../constants/theme';
 
 type InputProps = TextInputProps & {
   label: string;
+  error?: string;
 };
 
-export function Input({ label, style, ...props }: InputProps) {
+export function Input({ label, error, style, ...props }: InputProps) {
   return (
     <View style={styles.container}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
         placeholderTextColor={Colors.muted}
-        style={[styles.input, style]}
+        style={[styles.input, error && styles.inputError, style]}
         selectionColor={Colors.primary}
         {...props}
       />
+      {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );
 }
@@ -38,6 +40,14 @@ const styles = StyleSheet.create({
     color: Colors.text,
     fontSize: Typography.body,
     backgroundColor: Colors.card,
+  },
+  inputError: {
+    borderColor: Colors.danger,
+  },
+  error: {
+    color: Colors.danger,
+    fontSize: Typography.small,
+    fontWeight: '700',
   },
 });
 

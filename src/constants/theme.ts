@@ -9,7 +9,12 @@ export const Colors = {
   border: '#e5e7eb',
   white: '#ffffff',
   danger: '#dc2626',
+  dangerBorder: '#fecaca',
+  dangerSoft: '#fef2f2',
+  warning: '#b45309',
+  warningSoft: '#fffbeb',
   success: '#059669',
+  successSoft: '#ecfdf5',
   info: '#2563eb',
 };
 

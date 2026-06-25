@@ -4,10 +4,12 @@ import { Alert, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '../../src/components/Button';
 import { Input } from '../../src/components/Input';
+import { LogoProEstoque } from '../../src/components/LogoProEstoque';
 import { Colors, Spacing, Typography } from '../../src/constants/theme';
 
 export default function RecuperarSenhaScreen() {
   const [email, setEmail] = useState('');
+  const [success, setSuccess] = useState(false);
 
   function handleRecover() {
     if (!email.trim()) {
@@ -15,28 +17,37 @@ export default function RecuperarSenhaScreen() {
       return;
     }
 
-    Alert.alert('Recuperacao enviada', 'Confira sua caixa de entrada para continuar.');
+    setSuccess(true);
   }
 
   return (
     <View style={styles.container}>
+      <LogoProEstoque size="sm" />
       <Text style={styles.title}>Recuperar senha</Text>
-      <Text style={styles.subtitle}>Enviaremos instrucoes para o e-mail cadastrado.</Text>
+      <Text style={styles.subtitle}>Informe seu e-mail e enviaremos um link de recuperacao</Text>
 
-      <View style={styles.form}>
-        <Input
-          label="E-mail"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          placeholder="seu@email.com"
-        />
-        <Button title="Enviar instrucoes" onPress={handleRecover} fullWidth />
-      </View>
+      {success ? (
+        <View style={styles.successBox}>
+          <Text style={styles.successIcon}>OK</Text>
+          <Text style={styles.successTitle}>E-mail enviado!</Text>
+          <Text style={styles.successText}>Verifique sua caixa de entrada.</Text>
+        </View>
+      ) : (
+        <View style={styles.form}>
+          <Input
+            label="E-mail"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            placeholder="seu@email.com"
+          />
+          <Button title="Enviar" onPress={handleRecover} fullWidth />
+        </View>
+      )}
 
       <Link href="/login" asChild>
-        <Text style={styles.link}>Voltar para o login</Text>
+        <Text style={styles.link}>Voltar ao Login</Text>
       </Link>
     </View>
   );
@@ -62,6 +73,25 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: Spacing.md,
+  },
+  successBox: {
+    alignItems: 'center',
+    gap: Spacing.sm,
+    paddingVertical: Spacing.lg,
+  },
+  successIcon: {
+    color: Colors.success,
+    fontSize: Typography.subtitle,
+    fontWeight: '900',
+  },
+  successTitle: {
+    color: Colors.text,
+    fontSize: Typography.subtitle,
+    fontWeight: '800',
+  },
+  successText: {
+    color: Colors.muted,
+    fontSize: Typography.body,
   },
   link: {
     alignSelf: 'center',

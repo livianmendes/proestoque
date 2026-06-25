@@ -1,11 +1,12 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '../../src/components/Button';
 import { Input } from '../../src/components/Input';
+import { LogoProEstoque } from '../../src/components/LogoProEstoque';
+import { Colors, Spacing, Typography } from '../../src/constants/theme';
 import { useAuth } from '../../src/contexts/AuthContext';
-import { Colors, Radii, Spacing, Typography } from '../../src/constants/theme';
 
 export default function LoginScreen() {
   const { login, isLoading } = useAuth();
@@ -26,55 +27,58 @@ export default function LoginScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.container}>
-      <View style={styles.brand}>
-        <View style={styles.logo}>
-          <Text style={styles.logoText}>P</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.container}>
+        <View style={styles.brand}>
+          <LogoProEstoque size="lg" />
+          <Text style={styles.subtitle}>Bem-vindo de volta</Text>
         </View>
-        <Text style={styles.appName}>ProEstoque</Text>
-        <Text style={styles.subtitle}>Bem-vindo de volta</Text>
-      </View>
 
-      <View style={styles.form}>
-        <Input
-          label="E-mail"
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          placeholder="seu@email.com"
-        />
-        <Input
-          label="Senha"
-          value={password}
-          onChangeText={setPassword}
-          placeholder="Digite sua senha"
-          secureTextEntry
-        />
-        <Button
-          title="Entrar"
-          onPress={handleLogin}
-          loading={isLoading}
-          disabled={isLoading}
-          fullWidth
-        />
-      </View>
+        <View style={styles.form}>
+          <Input
+            label="E-mail"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+            placeholder="seu@email.com"
+          />
+          <Input
+            label="Senha"
+            value={password}
+            onChangeText={setPassword}
+            placeholder="Digite sua senha"
+            secureTextEntry
+          />
+          <Button
+            title="Entrar"
+            onPress={handleLogin}
+            loading={isLoading}
+            disabled={isLoading}
+            fullWidth
+          />
+        </View>
 
-      <View style={styles.links}>
-        <Link href="/cadastro" asChild>
-          <Text style={styles.linkText}>Criar conta</Text>
-        </Link>
-        <Link href="/recuperar-senha" asChild>
-          <Text style={styles.secondaryLink}>Esqueci minha senha</Text>
-        </Link>
-      </View>
-    </KeyboardAvoidingView>
+        <View style={styles.links}>
+          <Link href="/cadastro" asChild>
+            <Text style={styles.linkText}>Criar conta</Text>
+          </Link>
+          <Link href="/recuperar-senha" asChild>
+            <Text style={styles.secondaryLink}>Esqueci minha senha</Text>
+          </Link>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -84,25 +88,6 @@ const styles = StyleSheet.create({
   brand: {
     alignItems: 'center',
     marginBottom: Spacing.xl,
-  },
-  logo: {
-    width: 72,
-    height: 72,
-    borderRadius: Radii.extraLarge,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.md,
-    backgroundColor: Colors.primary,
-  },
-  logoText: {
-    color: Colors.white,
-    fontSize: 34,
-    fontWeight: '800',
-  },
-  appName: {
-    color: Colors.text,
-    fontSize: Typography.hero,
-    fontWeight: '800',
   },
   subtitle: {
     color: Colors.muted,
