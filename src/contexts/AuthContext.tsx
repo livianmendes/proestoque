@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import { api, AUTH_STORAGE_KEYS } from '../services/api';
+import { api, AUTH_STORAGE_KEYS, setUnauthorizedHandler } from '../services/api';
 
 const MIN_SPLASH_TIME = 1500;
 
@@ -30,6 +30,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     restoreSession();
+  }, []);
+
+  useEffect(() => {
+    return setUnauthorizedHandler(() => {
+      setToken(null);
+      setUser(null);
+    });
   }, []);
 
   async function restoreSession() {
@@ -83,7 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       await saveSession(usuario, tokenValue, refreshToken);
     } catch (error: any) {
-      const message = error.response?.data?.erro ?? 'Erro ao fazer login';
+      const message = error instanceof Error ? error.message : 'Erro ao fazer login';
 
       throw new Error(message);
     } finally {
@@ -100,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       await saveSession(usuario, tokenValue, refreshToken);
     } catch (error: any) {
-      const message = error.response?.data?.erro ?? 'Erro ao criar conta';
+      const message = error instanceof Error ? error.message : 'Erro ao criar conta';
 
       throw new Error(message);
     } finally {

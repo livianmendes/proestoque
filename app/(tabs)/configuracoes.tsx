@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Colors, Radii, Spacing, Typography } from '../../src/constants/theme';
 import { useAuth } from '../../src/contexts/AuthContext';
@@ -17,6 +17,11 @@ export default function ConfiguracoesScreen() {
   const inicial = nome.charAt(0).toUpperCase();
 
   function confirmLogout() {
+    if (Platform.OS === 'web') {
+      logout();
+      return;
+    }
+
     Alert.alert('Sair da conta', 'Tem certeza que deseja encerrar sua sessao?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Sair', style: 'destructive', onPress: logout },
@@ -144,8 +149,8 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.md,
     borderRadius: Radii.large,
     borderWidth: 1,
-    borderColor: '#fecaca',
-    backgroundColor: '#fef2f2',
+    borderColor: Colors.dangerBorder,
+    backgroundColor: Colors.dangerSoft,
   },
   logoutText: {
     color: Colors.danger,
@@ -153,4 +158,3 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
-
