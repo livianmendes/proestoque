@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { ScrollView, StyleSheet } from 'react-native';
+import { Alert, ScrollView, StyleSheet } from 'react-native';
 
 import { ProductForm } from '../../../src/components/ProductForm';
 import { Colors, Spacing } from '../../../src/constants/theme';
@@ -10,8 +10,15 @@ export default function NovoProdutoScreen() {
   const { adicionarProduto } = useProducts();
 
   async function handleSubmit(data: ProdutoFormData) {
-    await adicionarProduto(data);
-    router.back();
+    try {
+      await adicionarProduto(data);
+      router.back();
+    } catch (error) {
+      Alert.alert(
+        'Nao foi possivel salvar',
+        error instanceof Error ? error.message : 'Verifique sua conexao e tente novamente.'
+      );
+    }
   }
 
   return (

@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Button } from '../../../src/components/Button';
+import { LoadingView } from '../../../src/components/LoadingView';
 import { ProductForm } from '../../../src/components/ProductForm';
 import { Colors, Spacing, Typography } from '../../../src/constants/theme';
 import { productToFormData, useProducts } from '../../../src/contexts/ProductsContext';
@@ -9,7 +10,7 @@ import { ProdutoFormData } from '../../../src/schemas/produtoSchema';
 
 export default function EditarProdutoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { buscarProdutoPorId, editarProduto, excluirProduto } = useProducts();
+  const { buscarProdutoPorId, editarProduto, excluirProduto, isLoading } = useProducts();
   const produto = id ? buscarProdutoPorId(id) : undefined;
 
   async function handleSubmit(data: ProdutoFormData) {
@@ -17,8 +18,15 @@ export default function EditarProdutoScreen() {
       return;
     }
 
-    await editarProduto(produto.id, data);
-    router.back();
+    try {
+      await editarProduto(produto.id, data);
+      router.back();
+    } catch (error) {
+      Alert.alert(
+        'Nao foi possivel salvar',
+        error instanceof Error ? error.message : 'Verifique sua conexao e tente novamente.'
+      );
+    }
   }
 
   function handleDelete() {
@@ -32,11 +40,22 @@ export default function EditarProdutoScreen() {
         text: 'Excluir',
         style: 'destructive',
         onPress: async () => {
-          await excluirProduto(produto.id);
-          router.replace('/produtos');
+          try {
+            await excluirProduto(produto.id);
+            router.replace('/produtos');
+          } catch (error) {
+            Alert.alert(
+              'Erro ao excluir',
+              error instanceof Error ? error.message : 'Tente novamente.'
+            );
+          }
         },
       },
     ]);
+  }
+
+  if (isLoading && !produto) {
+    return <LoadingView mensagem="Carregando produto..." />;
   }
 
   if (!produto) {

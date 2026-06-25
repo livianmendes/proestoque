@@ -9,7 +9,7 @@ const numericString = (message: string) =>
 
 export const produtoSchema = z.object({
   nome: z.string().trim().min(3, 'Informe um nome com pelo menos 3 caracteres'),
-  categoria: z.string().trim().min(2, 'Informe a categoria'),
+  categoriaId: z.string().trim().min(1, 'Selecione a categoria'),
   unidade: z.string().trim().min(1, 'Informe a unidade'),
   quantidade: numericString('Informe uma quantidade valida').refine(
     (value) => toNumber(value) >= 0,
@@ -32,7 +32,7 @@ export function toNumber(value: string) {
 
 export const produtoDefaultValues: ProdutoFormData = {
   nome: '',
-  categoria: '',
+  categoriaId: '',
   unidade: 'un',
   quantidade: '',
   quantidadeMinima: '',

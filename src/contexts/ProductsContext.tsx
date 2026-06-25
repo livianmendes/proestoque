@@ -1,32 +1,46 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, ReactNode, useContext, useEffect, useMemo, useReducer } from 'react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useReducer } from 'react';
 
-import { produtos as produtosMock } from '../data/mockData';
+import { api } from '../services/api';
+import { notificarEstoqueCritico } from '../services/notifications';
 import { ProdutoFormData, toNumber } from '../schemas/produtoSchema';
+import { calcularValorTotal, formatCurrency, estoqueBaixo } from '../utils/formatters';
+import { useAuth } from './AuthContext';
 
-const STORAGE_KEY = '@proestoque:produtos';
+export type Categoria = {
+  id: string;
+  nome: string;
+  icone: string;
+  cor: string;
+  _count?: { produtos: number };
+};
 
 export type Produto = {
   id: string;
   nome: string;
-  categoria: string;
+  categoriaId: string;
+  categoria?: Categoria;
   unidade: string;
   quantidade: number;
   quantidadeMinima: number;
   preco: number;
-  observacao?: string;
-  foto?: string;
-  createdAt: string;
-  updatedAt: string;
+  observacao?: string | null;
+  foto?: string | null;
+  ultimaMovimentacao: string;
+  criadoEm: string;
+  atualizadoEm?: string;
 };
 
 type ProductsState = {
   produtos: Produto[];
   isLoading: boolean;
+  error: string | null;
 };
 
 type ProductsAction =
-  | { type: 'LOAD'; payload: Produto[] }
+  | { type: 'LOAD_START' }
+  | { type: 'LOAD_SUCCESS'; payload: Produto[] }
+  | { type: 'LOAD_ERROR'; payload: string }
+  | { type: 'RESET' }
   | { type: 'ADD'; payload: Produto }
   | { type: 'UPDATE'; payload: Produto }
   | { type: 'DELETE'; payload: string };
@@ -42,8 +56,11 @@ type ProductsContextType = {
     valorTotal: string;
   };
   isLoading: boolean;
+  error: string | null;
+  carregarProdutos: () => Promise<void>;
   adicionarProduto: (data: ProdutoFormData) => Promise<void>;
   editarProduto: (id: string, data: ProdutoFormData) => Promise<void>;
+  deletarProduto: (id: string) => Promise<void>;
   excluirProduto: (id: string) => Promise<void>;
   buscarProdutoPorId: (id: string) => Produto | undefined;
 };
@@ -52,8 +69,14 @@ const ProductsContext = createContext<ProductsContextType | undefined>(undefined
 
 function productsReducer(state: ProductsState, action: ProductsAction): ProductsState {
   switch (action.type) {
-    case 'LOAD':
-      return { produtos: action.payload, isLoading: false };
+    case 'LOAD_START':
+      return { ...state, isLoading: true, error: null };
+    case 'LOAD_SUCCESS':
+      return { produtos: action.payload, isLoading: false, error: null };
+    case 'LOAD_ERROR':
+      return { ...state, isLoading: false, error: action.payload };
+    case 'RESET':
+      return { produtos: [], isLoading: false, error: null };
     case 'ADD':
       return { ...state, produtos: [action.payload, ...state.produtos] };
     case 'UPDATE':
@@ -74,105 +97,98 @@ function productsReducer(state: ProductsState, action: ProductsAction): Products
 }
 
 export function ProductsProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const [state, dispatch] = useReducer(productsReducer, {
     produtos: [],
-    isLoading: true,
+    isLoading: false,
+    error: null,
   });
 
-  useEffect(() => {
-    async function loadProducts() {
-      try {
-        const storedProducts = await AsyncStorage.getItem(STORAGE_KEY);
-
-        if (storedProducts) {
-          dispatch({ type: 'LOAD', payload: JSON.parse(storedProducts) as Produto[] });
-          return;
-        }
-
-        await persistProducts(initialProducts);
-        dispatch({ type: 'LOAD', payload: initialProducts });
-      } catch {
-        dispatch({ type: 'LOAD', payload: initialProducts });
-      }
-    }
-
-    loadProducts();
-  }, []);
-
-  async function adicionarProduto(data: ProdutoFormData) {
-    const now = new Date().toISOString();
-    const produto = formDataToProduct(data, {
-      id: createId(),
-      createdAt: now,
-      updatedAt: now,
-    });
-    const nextProducts = [produto, ...state.produtos];
-
-    dispatch({ type: 'ADD', payload: produto });
-    await persistProducts(nextProducts);
-  }
-
-  async function editarProduto(id: string, data: ProdutoFormData) {
-    const currentProduct = state.produtos.find((produto) => produto.id === id);
-
-    if (!currentProduct) {
+  const carregarProdutos = useCallback(async () => {
+    if (!isAuthenticated) {
+      dispatch({ type: 'RESET' });
       return;
     }
 
-    const updatedProduct = formDataToProduct(data, {
-      id,
-      createdAt: currentProduct.createdAt,
-      updatedAt: new Date().toISOString(),
-    });
-    const nextProducts = state.produtos.map((produto) =>
-      produto.id === id ? updatedProduct : produto
-    );
+    dispatch({ type: 'LOAD_START' });
 
-    dispatch({ type: 'UPDATE', payload: updatedProduct });
-    await persistProducts(nextProducts);
-  }
+    try {
+      const { data } = await api.get<Produto[]>('/produtos');
+      dispatch({ type: 'LOAD_SUCCESS', payload: data });
+      notificarEstoqueCritico(data).catch(() => undefined);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao carregar produtos';
+      dispatch({ type: 'LOAD_ERROR', payload: message });
+    }
+  }, [isAuthenticated]);
 
-  async function excluirProduto(id: string) {
-    const nextProducts = state.produtos.filter((produto) => produto.id !== id);
+  useEffect(() => {
+    if (isAuthLoading) {
+      return;
+    }
 
+    if (isAuthenticated) {
+      carregarProdutos();
+      return;
+    }
+
+    dispatch({ type: 'RESET' });
+  }, [carregarProdutos, isAuthenticated, isAuthLoading]);
+
+  const adicionarProduto = useCallback(async (data: ProdutoFormData) => {
+    const { data: produto } = await api.post<Produto>('/produtos', formDataToApi(data));
+    dispatch({ type: 'ADD', payload: produto });
+  }, []);
+
+  const editarProduto = useCallback(async (id: string, data: ProdutoFormData) => {
+    const { data: produto } = await api.put<Produto>(`/produtos/${id}`, formDataToApi(data));
+    dispatch({ type: 'UPDATE', payload: produto });
+  }, []);
+
+  const deletarProduto = useCallback(async (id: string) => {
+    await api.delete(`/produtos/${id}`);
     dispatch({ type: 'DELETE', payload: id });
-    await persistProducts(nextProducts);
-  }
+  }, []);
 
-  function buscarProdutoPorId(id: string) {
-    return state.produtos.find((produto) => produto.id === id);
-  }
+  const buscarProdutoPorId = useCallback(
+    (id: string) => state.produtos.find((produto) => produto.id === id),
+    [state.produtos]
+  );
 
   const categorias = useMemo(
-    () => Array.from(new Set(state.produtos.map((produto) => produto.categoria))).sort(),
+    () =>
+      Array.from(
+        new Set(
+          state.produtos.map((produto) => produto.categoria?.nome).filter(Boolean) as string[]
+        )
+      ).sort(),
     [state.produtos]
   );
 
   const resumo = useMemo(() => {
-    const valorTotal = state.produtos.reduce(
-      (total, produto) => total + produto.preco * produto.quantidade,
-      0
-    );
+    const valorTotal = calcularValorTotal(state.produtos);
+    const categoriaIds = new Set(state.produtos.map((produto) => produto.categoriaId));
 
     return {
       totalProdutos: state.produtos.length,
-      baixoEstoque: state.produtos.filter(
-        (produto) => produto.quantidade > 0 && produto.quantidade <= produto.quantidadeMinima
-      ).length,
+      baixoEstoque: state.produtos.filter(estoqueBaixo).length,
       semEstoque: state.produtos.filter((produto) => produto.quantidade === 0).length,
-      categorias: categorias.length,
+      categorias: categoriaIds.size,
       valorTotal: formatCurrency(valorTotal),
     };
-  }, [categorias.length, state.produtos]);
+  }, [state.produtos]);
 
   const value: ProductsContextType = {
     produtos: state.produtos,
     categorias,
     resumo,
     isLoading: state.isLoading,
+    error: state.error,
+    carregarProdutos,
     adicionarProduto,
     editarProduto,
-    excluirProduto,
+    deletarProduto,
+    excluirProduto: deletarProduto,
     buscarProdutoPorId,
   };
 
@@ -192,7 +208,7 @@ export function useProducts() {
 export function productToFormData(produto: Produto): ProdutoFormData {
   return {
     nome: produto.nome,
-    categoria: produto.categoria,
+    categoriaId: produto.categoriaId,
     unidade: produto.unidade,
     quantidade: String(produto.quantidade),
     quantidadeMinima: String(produto.quantidadeMinima),
@@ -202,48 +218,15 @@ export function productToFormData(produto: Produto): ProdutoFormData {
   };
 }
 
-export function formatCurrency(value: number) {
-  return value.toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  });
-}
-
-function formDataToProduct(
-  data: ProdutoFormData,
-  meta: Pick<Produto, 'id' | 'createdAt' | 'updatedAt'>
-): Produto {
+function formDataToApi(data: ProdutoFormData) {
   return {
-    ...meta,
     nome: data.nome.trim(),
-    categoria: data.categoria.trim(),
+    categoriaId: data.categoriaId,
     unidade: data.unidade.trim(),
     quantidade: toNumber(data.quantidade),
     quantidadeMinima: toNumber(data.quantidadeMinima),
     preco: toNumber(data.preco),
-    observacao: data.observacao?.trim(),
-    foto: data.foto,
+    observacao: data.observacao?.trim() || null,
+    foto: data.foto || null,
   };
 }
-
-async function persistProducts(produtos: Produto[]) {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(produtos));
-}
-
-function createId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-const initialProducts: Produto[] = produtosMock.map((produto) => ({
-  id: produto.id,
-  nome: produto.nome,
-  categoria: produto.categoria,
-  unidade: 'un',
-  quantidade: produto.estoque,
-  quantidadeMinima: produto.estoqueMinimo,
-  preco: Number(produto.preco.replace('R$ ', '').replace(',', '.')),
-  observacao: '',
-  foto: '',
-  createdAt: new Date(2026, 5, 2).toISOString(),
-  updatedAt: new Date(2026, 5, 2).toISOString(),
-}));

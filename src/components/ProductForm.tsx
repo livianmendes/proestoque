@@ -1,8 +1,9 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Colors, Spacing, Typography } from '../constants/theme';
+import { useCategorias } from '../hooks/useCategorias';
 import { produtoDefaultValues, ProdutoFormData, produtoSchema } from '../schemas/produtoSchema';
 import { Button } from './Button';
 import { ImagePickerField } from './ImagePickerField';
@@ -15,6 +16,7 @@ type ProductFormProps = {
 };
 
 export function ProductForm({ initialValues, submitLabel, onSubmit }: ProductFormProps) {
+  const { categorias, isLoading: loadingCategorias } = useCategorias();
   const {
     control,
     handleSubmit,
@@ -50,18 +52,37 @@ export function ProductForm({ initialValues, submitLabel, onSubmit }: ProductFor
         />
       </FormField>
 
-      <FormField error={errors.categoria?.message}>
+      <FormField error={errors.categoriaId?.message}>
         <Controller
           control={control}
-          name="categoria"
-          render={({ field: { value, onChange, onBlur } }) => (
-            <Input
-              label="Categoria *"
-              value={value}
-              onBlur={onBlur}
-              onChangeText={onChange}
-              placeholder="Alimentos"
-            />
+          name="categoriaId"
+          render={({ field: { value, onChange } }) => (
+            <View style={styles.categoryField}>
+              <Text style={styles.label}>Categoria *</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.categoryRow}>
+                  {categorias.map((categoria) => {
+                    const selected = value === categoria.id;
+
+                    return (
+                      <Pressable
+                        key={categoria.id}
+                        style={[styles.categoryChip, selected && styles.categoryChipSelected]}
+                        onPress={() => onChange(categoria.id)}>
+                        <Text
+                          style={[
+                            styles.categoryChipText,
+                            selected && styles.categoryChipTextSelected,
+                          ]}>
+                          {categoria.nome}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+              {loadingCategorias && <Text style={styles.helper}>Carregando categorias...</Text>}
+            </View>
           )}
         />
       </FormField>
@@ -187,6 +208,42 @@ const styles = StyleSheet.create({
   },
   field: {
     gap: Spacing.xs,
+  },
+  label: {
+    color: Colors.text,
+    fontSize: Typography.small,
+    fontWeight: '800',
+  },
+  helper: {
+    color: Colors.muted,
+    fontSize: Typography.small,
+  },
+  categoryField: {
+    gap: Spacing.sm,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  categoryChip: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.card,
+  },
+  categoryChipSelected: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.primary,
+  },
+  categoryChipText: {
+    color: Colors.muted,
+    fontSize: Typography.small,
+    fontWeight: '800',
+  },
+  categoryChipTextSelected: {
+    color: Colors.white,
   },
   row: {
     flexDirection: 'row',
