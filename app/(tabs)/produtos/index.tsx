@@ -1,33 +1,58 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { FlatList, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { ErrorView } from '../../../src/components/ErrorView';
+import { ProductCard } from '../../../src/components/ProductCard';
+import { ProdutoSkeletonList } from '../../../src/components/ProdutoSkeleton';
+import { Skeleton } from '../../../src/components/Skeleton';
 import { Colors, Radii, Spacing, Typography } from '../../../src/constants/theme';
-import { formatCurrency, Produto, useProducts } from '../../../src/contexts/ProductsContext';
-
-type Status = {
-  label: string;
-  color: string;
-  backgroundColor: string;
-};
+import { useProducts } from '../../../src/contexts/ProductsContext';
+import { useCategorias } from '../../../src/hooks/useCategorias';
 
 export default function ProdutosScreen() {
-  const { produtos, categorias } = useProducts();
+  const { produtos, isLoading, error, carregarProdutos } = useProducts();
+  const { categorias } = useCategorias();
   const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('Todos');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const filteredProducts = useMemo(() => {
     return produtos.filter((produto) => {
       const matchesSearch = produto.nome.toLowerCase().includes(search.trim().toLowerCase());
-      const matchesCategory =
-        selectedCategory === 'Todos' || produto.categoria === selectedCategory;
+      const matchesCategory = !selectedCategoryId || produto.categoriaId === selectedCategoryId;
 
       return matchesSearch && matchesCategory;
     });
-  }, [produtos, search, selectedCategory]);
+  }, [produtos, search, selectedCategoryId]);
 
-  const filters = ['Todos', ...categorias];
+  const filters = [
+    { id: null, nome: 'Todos' },
+    ...categorias.map((categoria) => ({
+      id: categoria.id,
+      nome: categoria.nome,
+    })),
+  ];
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await carregarProdutos();
+    setRefreshing(false);
+  }, [carregarProdutos]);
+
+  if (isLoading && produtos.length === 0) {
+    return (
+      <View style={styles.container}>
+        <Skeleton width="100%" height={48} radius={Radii.medium} />
+        <ProdutoSkeletonList count={6} />
+      </View>
+    );
+  }
+
+  if (error && produtos.length === 0) {
+    return <ErrorView mensagem={error} onRetry={carregarProdutos} />;
+  }
 
   return (
     <View style={styles.container}>
@@ -37,6 +62,8 @@ export default function ProdutosScreen() {
         placeholder="Buscar produto..."
         placeholderTextColor={Colors.muted}
         selectionColor={Colors.primary}
+        autoCapitalize="none"
+        autoCorrect={false}
         style={styles.searchInput}
       />
 
@@ -46,29 +73,38 @@ export default function ProdutosScreen() {
         ListHeaderComponent={
           <FlatList
             data={filters}
-            keyExtractor={(item) => item}
+            keyExtractor={(item) => item.id ?? 'todos'}
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filters}
             renderItem={({ item }) => {
-              const active = item === selectedCategory;
+              const active = item.id === selectedCategoryId;
 
               return (
                 <Pressable
-                  onPress={() => setSelectedCategory(item)}
+                  onPress={() => setSelectedCategoryId(item.id)}
                   style={[styles.filterChip, active && styles.filterChipActive]}>
-                  <Text style={[styles.filterText, active && styles.filterTextActive]}>{item}</Text>
+                  <Text style={[styles.filterText, active && styles.filterTextActive]}>
+                    {item.nome}
+                  </Text>
                 </Pressable>
               );
             }}
           />
         }
         contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.primary}
+          />
+        }
         ListEmptyComponent={<Text style={styles.empty}>Nenhum produto encontrado.</Text>}
         renderItem={({ item }) => (
-          <ProductItem
+          <ProductCard
             produto={item}
-            onPress={() => router.push({ pathname: '/produtos/[id]', params: { id: item.id } })}
+            onEditar={(id) => router.push({ pathname: '/produtos/[id]', params: { id } })}
           />
         )}
       />
@@ -78,48 +114,6 @@ export default function ProdutosScreen() {
       </Pressable>
     </View>
   );
-}
-
-function ProductItem({ produto, onPress }: { produto: Produto; onPress: () => void }) {
-  const status = getProductStatus(produto);
-
-  return (
-    <Pressable style={({ pressed }) => [styles.row, pressed && styles.rowPressed]} onPress={onPress}>
-      {produto.foto ? (
-        <Image source={{ uri: produto.foto }} style={styles.thumbnail} />
-      ) : (
-        <View style={styles.icon}>
-          <Ionicons color={Colors.primary} name="cube-outline" size={22} />
-        </View>
-      )}
-      <View style={styles.content}>
-        <Text style={styles.name}>{produto.nome}</Text>
-        <Text style={styles.meta}>
-          {produto.categoria} - {formatCurrency(produto.preco)}
-        </Text>
-      </View>
-      <View style={styles.trailing}>
-        <Text style={styles.quantity}>
-          {produto.quantidade} {produto.unidade}
-        </Text>
-        <View style={[styles.badge, { backgroundColor: status.backgroundColor }]}>
-          <Text style={[styles.badgeText, { color: status.color }]}>{status.label}</Text>
-        </View>
-      </View>
-    </Pressable>
-  );
-}
-
-function getProductStatus(produto: Produto): Status {
-  if (produto.quantidade === 0) {
-    return { label: 'Sem estoque', color: Colors.danger, backgroundColor: '#fef2f2' };
-  }
-
-  if (produto.quantidade <= produto.quantidadeMinima) {
-    return { label: 'Baixo', color: '#b45309', backgroundColor: '#fffbeb' };
-  }
-
-  return { label: 'Normal', color: Colors.success, backgroundColor: '#ecfdf5' };
 }
 
 const styles = StyleSheet.create({
@@ -165,64 +159,6 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingBottom: 96,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    padding: Spacing.md,
-    borderRadius: Radii.large,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.card,
-    marginBottom: Spacing.sm,
-  },
-  rowPressed: {
-    opacity: 0.72,
-  },
-  icon: {
-    width: 48,
-    height: 48,
-    borderRadius: Radii.medium,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.primarySoft,
-  },
-  thumbnail: {
-    width: 48,
-    height: 48,
-    borderRadius: Radii.medium,
-  },
-  content: {
-    flex: 1,
-  },
-  name: {
-    color: Colors.text,
-    fontSize: Typography.body,
-    fontWeight: '800',
-  },
-  meta: {
-    color: Colors.muted,
-    fontSize: Typography.small,
-    marginTop: 2,
-  },
-  trailing: {
-    alignItems: 'flex-end',
-    gap: 6,
-  },
-  quantity: {
-    color: Colors.text,
-    fontSize: Typography.small,
-    fontWeight: '800',
-  },
-  badge: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  badgeText: {
-    fontSize: Typography.caption,
-    fontWeight: '900',
   },
   empty: {
     color: Colors.muted,
