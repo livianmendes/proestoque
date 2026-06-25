@@ -1,3 +1,4 @@
+import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ReactNode, useEffect } from 'react';
@@ -5,6 +6,17 @@ import { ReactNode, useEffect } from 'react';
 import { SplashScreen } from '../src/components/SplashScreen';
 import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
 import { ProductsProvider } from '../src/contexts/ProductsContext';
+import { agendarVerificacaoDiaria, solicitarPermissao } from '../src/services/notifications';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 export default function RootLayout() {
   return (
@@ -45,6 +57,16 @@ function NavigationGuard({ children }: { children: ReactNode }) {
       router.replace('/(tabs)');
     }
   }, [isLoading, router, shouldGoToApp, shouldGoToLogin]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    solicitarPermissao()
+      .then(() => agendarVerificacaoDiaria())
+      .catch(() => undefined);
+  }, [isAuthenticated]);
 
   if (isLoading || shouldGoToLogin || shouldGoToApp) {
     return <SplashScreen />;
